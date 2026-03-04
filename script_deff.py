@@ -1,6 +1,6 @@
 import taichi as ti
 import porespy as ps
-from kabs import solve_diffusion, compute_effective_diffusivity
+from deff import solve_diffusion, compute_effective_diffusivity
 
 ti.init(arch=ti.cpu)
 im = ps.generators.cylinders(
@@ -15,7 +15,7 @@ solver = solve_diffusion(
     tol=5e-2,
 )
 res = compute_effective_diffusivity(
-    "LB_Diffusion-7000-x.vtr",
+    "LB_Diffusion-1500-x.vtr",
     direction="x",
 )
 print(f"D_eff/D_0 = {res['D_eff_norm']:.4f}")
