@@ -9,13 +9,14 @@ im = ps.generators.cylinders(
     porosity=0.7,
     seed=0,
 )
+
 solver = solve_diffusion(
-    im,
+    im=im,
     direction="x",
-    tol=5e-2,
+    tol=1e-2,
 )
 res = compute_effective_diffusivity(
-    "LB_Diffusion-1500-x.vtr",
+    solver._last_vtr,
     direction="x",
 )
 print(f"D_eff/D_0 = {res['D_eff_norm']:.4f}")
