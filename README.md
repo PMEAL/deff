@@ -11,7 +11,7 @@ The LBM implementation is adapted from
 ## Installation
 
 ```bash
-git clone https://github.com/your-org/deff.git
+git clone https://github.com/PMEAL/deff.git
 cd deff
 pip install -e .
 ```
