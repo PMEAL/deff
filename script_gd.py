@@ -5,10 +5,9 @@ import numpy as np
 import matplotlib.pyplot as plt
 from deff import (
     solve_diffusion, 
-    compute_effective_diffusivity,
-    plot_concentration,
-    add_diffusion_streamlines,
     compute_diffusive_conductance,
+    plot_cross_section,
+    add_streamlines,
 )
 from porespy.tools import (
     get_edt,
@@ -41,23 +40,17 @@ soln = solve_diffusion(
     direction="x",
     tol=1e-4,
 )
-res = compute_effective_diffusivity(
-    soln._last_vtr,
-    direction="x",
-)
-print(f"D_eff/D_0 = {res['D_eff_norm']:.4f}")
-print(f"Tortuosity = {res['tortuosity']:.4f}")
 
 # %%
 fig, ax = plt.subplots()
-c_slice = plot_concentration(soln._last_vtr, axis=1)
+c_slice = plot_cross_section(soln, axis=1)
 ax.imshow(c_slice, origin="lower", cmap="turbo", vmin=0, vmax=1)
-add_diffusion_streamlines(soln._last_vtr, ax, axis=1, color="white", density=1.0)
+add_streamlines(soln, ax, axis=1, color="white", density=1.0)
 plt.show()
+
 # %%
-soln.export_VTK("sample_diff", direction='x')
 results = compute_diffusive_conductance(
-    "sample_diff.vtr",
+    soln,
     direction="x",
     D_lu=1/4,
     D0_m2s=2.1e-5,   # e.g. O2 in air at 25°C
