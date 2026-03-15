@@ -7,7 +7,7 @@ import numpy as np
 from ._diffusion_solver import DiffusionSolver
 
 
-__all__ = ["solve_diffusion"]
+__all__ = ["solve_diffusion", "DiffusionResult"]
 
 # Concentration BCs are hardcoded: Δc = 1 keeps the Fick's law formula simple.
 # Only the ratio D_eff/D_0 is reported, so the absolute values cancel.
@@ -19,6 +19,52 @@ _BC_SETTERS = {
     "y": ("set_bc_c_y0", "set_bc_c_y1"),
     "z": ("set_bc_c_z0", "set_bc_c_z1"),
 }
+
+
+class DiffusionResult:
+    """Container for a converged D3Q7 BGK LBM diffusion simulation.
+
+    Attributes
+    ----------
+    solid : np.ndarray, shape (nx, ny, nz), dtype int8
+        Solid mask in internal convention: 1 = solid, 0 = pore.
+    c : np.ndarray, shape (nx, ny, nz), dtype float32
+        Concentration field.
+    flux : np.ndarray, shape (nx, ny, nz, 3), dtype float32
+        Diffusive flux vector (Jx, Jy, Jz) at each voxel.
+        Solid voxels are zeroed out.
+    direction : str
+        Flow direction used in the simulation ('x', 'y', or 'z').
+    D : float
+        Bulk diffusivity in lattice units.
+    """
+
+    def __init__(self, solver, direction, D):
+        self.direction = direction
+        self.D = D
+        self._solver = solver
+        solid_np     = solver.solid.to_numpy()
+        self.solid   = solid_np
+        self.c       = solver.c.to_numpy().astype(np.float32)
+        # Compute diffusive flux vector: J_d = Σ_s g_s * e_s[d]
+        g_np = solver.g.to_numpy()   # (nx, ny, nz, 7)
+        e_np = solver.e.to_numpy()   # (7, 3)
+        flux_vec = np.stack(
+            [(g_np * e_np[:, d]).sum(axis=-1).astype(np.float32) for d in range(3)],
+            axis=-1,
+        )  # shape (nx, ny, nz, 3)
+        flux_vec[solid_np > 0] = 0.0
+        self.flux = flux_vec
+
+    def export_to_vtk(self, prefix):
+        """Write a VTK Rectilinear Grid (.vtr) file.
+
+        Parameters
+        ----------
+        prefix : str
+            Output path without extension (pyevtk appends ``.vtr``).
+        """
+        self._solver.export_VTK(prefix, self.direction)
 
 
 def solve_diffusion(
@@ -77,9 +123,11 @@ def solve_diffusion(
 
     Returns
     -------
-    solver : DiffusionSolver
-        The solver object after the run.  Call ``solver.export_VTK(path, direction)``
-        manually if you set ``export_vtk=False`` and want to save later.
+    result : DiffusionResult
+        Result object containing ``solid``, ``c``, ``flux``, ``direction``,
+        and ``D`` as numpy arrays/values.  Pass directly to
+        ``compute_effective_diffusivity()`` or ``compute_diffusive_conductance()``,
+        or call ``result.export_to_vtk(prefix)`` to save a VTR file.
 
     Notes
     -----
@@ -87,9 +135,6 @@ def solve_diffusion(
 
         import taichi as ti
         ti.init(arch=ti.cpu)
-
-    Pass the returned VTR path to ``compute_effective_diffusivity`` to obtain
-    D_eff/D_0, formation factor, and tortuosity.
     """
     direction = direction.lower()
     if direction not in _BC_SETTERS:
@@ -146,12 +191,12 @@ def solve_diffusion(
             c_prev = c_now
             time_pre = time_now
 
-    object.__setattr__(solver, '_last_vtr', None)
+    result = DiffusionResult(solver, direction, D)
+
     if export_vtk:
         vtk_path = f"{output_prefix}-{final_step}-{direction}"
-        solver.export_VTK(vtk_path, direction)
-        object.__setattr__(solver, '_last_vtr', vtk_path + ".vtr")
+        result.export_to_vtk(vtk_path)
         if verbose:
             print(f"Exported {vtk_path}.vtr")
 
-    return solver
+    return result

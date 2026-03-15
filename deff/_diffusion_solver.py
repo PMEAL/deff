@@ -268,19 +268,20 @@ class DiffusionSolver:
         path : str
             Output path without extension (pyevtk appends ``.vtr``).
         direction : {'x', 'y', 'z'}
-            Flow direction used for the simulation.  Determines which
-            component of the diffusive flux is stored in the ``flux`` array.
+            Flow direction used for the simulation.  Stored in the file for
+            reference; all three flux components are always written.
         """
-        dir_idx = {"x": 0, "y": 1, "z": 2}[direction]
-
-        g_np    = self.g.to_numpy()        # (nx, ny, nz, 7)
-        e_np    = self.e.to_numpy()        # (7, 3)
+        g_np     = self.g.to_numpy()        # (nx, ny, nz, 7)
+        e_np     = self.e.to_numpy()        # (7, 3)
         solid_np = self.solid.to_numpy()
-        c_np    = self.c.to_numpy().astype(np.float32)
+        c_np     = self.c.to_numpy().astype(np.float32)
 
-        # Local diffusive flux in the flow direction: J_d = Σ_s g_s * e_s[d]
-        flux = (g_np * e_np[:, dir_idx]).sum(axis=-1).astype(np.float32)
-        flux[solid_np > 0] = 0.0  # zero out solid voxels
+        # Diffusive flux vector: J_d = Σ_s g_s * e_s[d]  for each component d
+        flux_vec = np.stack(
+            [(g_np * e_np[:, d]).sum(axis=-1).astype(np.float32) for d in range(3)],
+            axis=-1,
+        )  # shape (nx, ny, nz, 3)
+        flux_vec[solid_np > 0] = 0.0  # zero out solid voxels
 
         gridToVTK(
             path,
@@ -290,6 +291,10 @@ class DiffusionSolver:
             pointData={
                 "Solid": np.ascontiguousarray(solid_np),
                 "c":     np.ascontiguousarray(c_np),
-                "flux":  np.ascontiguousarray(flux),
+                "flux":  (
+                    np.ascontiguousarray(flux_vec[..., 0]),
+                    np.ascontiguousarray(flux_vec[..., 1]),
+                    np.ascontiguousarray(flux_vec[..., 2]),
+                ),
             },
         )
