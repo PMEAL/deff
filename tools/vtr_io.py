@@ -7,8 +7,44 @@ import struct
 
 import numpy as np
 
+__all__ = [
+    "vtr_to_array",
+    "parse_xml_arrays",
+    "read_array",
+]
 
-def _parse_xml_arrays(xml):
+
+def vtr_to_array(filename):
+    r"""
+    Extracts the velocity values for each voxel from the given VTR file and
+    converts to a Numpy array.
+
+    Parameters
+    ----------
+    filename : str
+        The VTR file produced by the simulation
+
+    Returns
+    -------
+    velocity : ndarray
+        An ndarray of size `velocity.ndim + 1`, where the final dimension contains
+        the x, y and z velocity components. For e.g. `velocity[..., 0]` returns
+        a 3D image with each voxel containing the x component of the velocity.
+    """
+    with open(filename, "rb") as fh:
+        raw = fh.read()
+    marker = raw.index(b'<AppendedData encoding="raw">')
+    binary_start = raw.index(b"_", marker) + 1
+    xml_header = raw[:marker].decode("utf-8", errors="replace")
+    arrays = parse_xml_arrays(xml_header)
+    m = re.search(r'WholeExtent="(\d+) (\d+) (\d+) (\d+) (\d+) (\d+)"', xml_header)
+    x0, x1, y0, y1, z0, z1 = (int(v) for v in m.groups())
+    nx, ny, nz = x1 - x0 + 1, y1 - y0 + 1, z1 - z0 + 1
+    velocity = read_array(raw, binary_start, arrays, "velocity", nx, ny, nz)
+    return velocity
+
+
+def parse_xml_arrays(xml):
     """Return a dict of {name: (offset, dtype, n_components)} from a VTK XML header."""
     arrays = {}
     for m in re.finditer(
@@ -28,7 +64,7 @@ def _parse_xml_arrays(xml):
     return arrays
 
 
-def _read_array(raw, binary_start, arrays, name, nx, ny, nz):
+def read_array(raw, binary_start, arrays, name, nx, ny, nz):
     """Read one named array from the raw VTR bytes.
 
     pyevtk writes vector data in AoS format (interleaved per point) with

@@ -27,7 +27,7 @@ import re
 
 import numpy as np
 
-from tools.vtr_io import _parse_xml_arrays, _read_array
+from tools.vtr_io import parse_xml_arrays, read_array
 
 
 __all__ = ["compute_effective_diffusivity"]
@@ -47,7 +47,7 @@ def _read_diffusion_vtr(vtr_file, verbose):
     marker       = raw.index(b'<AppendedData encoding="raw">')
     binary_start = raw.index(b"_", marker) + 1
     xml_header   = raw[:marker].decode("utf-8", errors="replace")
-    arrays       = _parse_xml_arrays(xml_header)
+    arrays       = parse_xml_arrays(xml_header)
 
     m = re.search(r'WholeExtent="(\d+) (\d+) (\d+) (\d+) (\d+) (\d+)"', xml_header)
     x0, x1, y0, y1, z0, z1 = (int(v) for v in m.groups())
@@ -55,9 +55,9 @@ def _read_diffusion_vtr(vtr_file, verbose):
     if verbose:
         print(f"  Grid: {nx} × {ny} × {nz} points")
 
-    solid    = _read_array(raw, binary_start, arrays, "Solid", nx, ny, nz)
-    c        = _read_array(raw, binary_start, arrays, "c",     nx, ny, nz)
-    flux_vec = _read_array(raw, binary_start, arrays, "flux",  nx, ny, nz)
+    solid    = read_array(raw, binary_start, arrays, "Solid", nx, ny, nz)
+    c        = read_array(raw, binary_start, arrays, "c",     nx, ny, nz)
+    flux_vec = read_array(raw, binary_start, arrays, "flux",  nx, ny, nz)
     if verbose:
         print("  Arrays loaded.")
     return solid, c, flux_vec
