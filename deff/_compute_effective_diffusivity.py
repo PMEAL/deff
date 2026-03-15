@@ -24,11 +24,10 @@ Tortuosity:        τ = F / φ = D_0 / (D_eff × φ)  (always > 1)
 """
 
 import re
-import struct
 
 import numpy as np
 
-from ._compute_permeability import _parse_xml_arrays, _read_array
+from tools.vtr_io import _parse_xml_arrays, _read_array
 
 
 __all__ = ["compute_effective_diffusivity"]

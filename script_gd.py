@@ -3,7 +3,7 @@ import taichi as ti
 import porespy as ps
 import numpy as np
 import matplotlib.pyplot as plt
-from kabs import (
+from deff import (
     solve_diffusion, 
     compute_effective_diffusivity,
     plot_concentration,

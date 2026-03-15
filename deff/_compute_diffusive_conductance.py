@@ -1,20 +1,18 @@
 import re
-import struct
 
 import numpy as np
 
-# Import the shared VTR parsing helpers from the permeability module.
-from ._compute_permeability import _parse_xml_arrays, _read_array
+from tools.vtr_io import _parse_xml_arrays, _read_array
 
 
-__all__ = ["compute_conductance"]
+__all__ = ["compute_diffusive_conductance"]
 
 
 _RHO_IN  = 1.00
 _RHO_OUT = 0.99
 
 
-def compute_conductance(
+def compute_diffusive_conductance(
     vtr_file,
     direction="x",
     nu=1.0 / 6.0,

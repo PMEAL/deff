@@ -1,7 +1,7 @@
 # %%
 import taichi as ti
 import porespy as ps
-from kabs import (
+from deff import (
     solve_diffusion, 
     compute_effective_diffusivity,
     plot_concentration,
@@ -24,7 +24,7 @@ soln = solve_diffusion(
     tol=1e-2,
 )
 res = compute_effective_diffusivity(
-    soln._last_vtr,
+    soln,
     direction="x",
 )
 print(f"D_eff/D_0 = {res['D_eff_norm']:.4f}")

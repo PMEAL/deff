@@ -1,4 +1,4 @@
-from kabs._compute_permeability import _parse_xml_arrays, _read_array
+from tools.vtr_io import _parse_xml_arrays, _read_array
 import re
 import numpy as np
 import matplotlib.pyplot as plt
@@ -42,14 +42,15 @@ def vtr_to_array(filename):
     return velocity
 
 
-def plot_cross_section(filename, direction="x", axis=2, streamlines=None):
+def plot_cross_section(source, direction="x", axis=2, streamlines=None):
     r"""
-    Generate a 2D image of the velocity field for plotting
+    Generate a 2D image of the flux field for plotting
 
     Parameters
     ----------
-    filename : str
-        The VTR file produced by the simulation
+    source : DiffusionResult or str
+        Either a ``DiffusionResult`` returned by ``solve_diffusion()``, or a
+        path to a ``.vtr`` file written by ``DiffusionSolver.export_VTK()``.
     direction : str
         Specifies which component of the velocity vector to plot.
         The default is "x". "all" will plot the magnitude of the
@@ -70,7 +71,11 @@ def plot_cross_section(filename, direction="x", axis=2, streamlines=None):
     velocity : ndarray
         A 2D array with voxel value corresponding to the velocity.
     """
-    velocity = vtr_to_array(filename)
+    from ._solve_diffusion import DiffusionResult
+    if isinstance(source, DiffusionResult):
+        velocity = source.flux
+    else:
+        velocity = vtr_to_array(source)
 
     if direction in [0, 'x', 'X']:
         v_dir = 0
@@ -128,7 +133,7 @@ def plot_concentration(filename, axis=2):
     return c_slice
 
 
-def add_diffusion_streamlines(filename, ax, axis, **kwargs):
+def add_diffusion_streamlines(source, ax, axis, **kwargs):
     r"""
     Add diffusive flux streamlines to a concentration plot.
 
@@ -138,8 +143,9 @@ def add_diffusion_streamlines(filename, ax, axis, **kwargs):
 
     Parameters
     ----------
-    filename : str
-        The VTR file produced by ``solve_diffusion`` / ``DiffusionSolver.export_VTK()``.
+    source : DiffusionResult or str
+        Either a ``DiffusionResult`` returned by ``solve_diffusion()``, or a
+        path to a ``.vtr`` file written by ``DiffusionSolver.export_VTK()``.
     ax : matplotlib.axes.Axes
         The axes object to draw streamlines on.
     axis : int
@@ -152,16 +158,21 @@ def add_diffusion_streamlines(filename, ax, axis, **kwargs):
     -------
     ax : matplotlib.axes.Axes
     """
-    with open(filename, "rb") as fh:
-        raw = fh.read()
-    marker = raw.index(b'<AppendedData encoding="raw">')
-    binary_start = raw.index(b"_", marker) + 1
-    xml_header = raw[:marker].decode("utf-8", errors="replace")
-    arrays = _parse_xml_arrays(xml_header)
-    m = re.search(r'WholeExtent="(\d+) (\d+) (\d+) (\d+) (\d+) (\d+)"', xml_header)
-    x0, x1, y0, y1, z0, z1 = (int(v) for v in m.groups())
-    nx, ny, nz = x1 - x0 + 1, y1 - y0 + 1, z1 - z0 + 1
-    flux = _read_array(raw, binary_start, arrays, "flux", nx, ny, nz)  # (nx, ny, nz, 3)
+    from ._solve_diffusion import DiffusionResult
+    if isinstance(source, DiffusionResult):
+        flux = source.flux
+        nx, ny, nz = flux.shape[:3]
+    else:
+        with open(source, "rb") as fh:
+            raw = fh.read()
+        marker = raw.index(b'<AppendedData encoding="raw">')
+        binary_start = raw.index(b"_", marker) + 1
+        xml_header = raw[:marker].decode("utf-8", errors="replace")
+        arrays = _parse_xml_arrays(xml_header)
+        m = re.search(r'WholeExtent="(\d+) (\d+) (\d+) (\d+) (\d+) (\d+)"', xml_header)
+        x0, x1, y0, y1, z0, z1 = (int(v) for v in m.groups())
+        nx, ny, nz = x1 - x0 + 1, y1 - y0 + 1, z1 - z0 + 1
+        flux = _read_array(raw, binary_start, arrays, "flux", nx, ny, nz)
     mid = [int(nx / 2), int(ny / 2), int(nz / 2)]
     if axis == 0:
         U = flux[mid[0], :, :, 1]
@@ -178,8 +189,12 @@ def add_diffusion_streamlines(filename, ax, axis, **kwargs):
     return ax
 
 
-def add_streamlines(filename, ax, axis, **kwargs):
-    velocity = vtr_to_array(filename)
+def add_streamlines(source, ax, axis, **kwargs):
+    from ._solve_diffusion import DiffusionResult
+    if isinstance(source, DiffusionResult):
+        velocity = source.flux
+    else:
+        velocity = vtr_to_array(source)
     mid = [int(s / 2) for s in velocity.shape[:3]]
     if axis == 0:
         U = velocity[mid[0], :, :, 1]
