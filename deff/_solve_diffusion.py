@@ -73,7 +73,7 @@ def solve_diffusion(
     n_steps=50000,
     D=1.0 / 4.0,
     log_every=500,
-    export_vtk=True,
+    export_vtk=False,
     output_prefix="LB_Diffusion",
     verbose=True,
     sparse=False,

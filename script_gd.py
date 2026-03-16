@@ -16,7 +16,7 @@ from porespy.tools import (
 edt = get_edt()
 
 ti.init(arch=ti.cpu)
-Rp = 20
+Rp = 10
 R_lu = 10
 L_lu = 50
 W = 50
@@ -52,15 +52,17 @@ plt.show()
 results = compute_diffusive_conductance(
     soln,
     direction="x",
-    dx_m=1e-6,
+    voxel_size=1e-6,
+    D0_m2s=2.09e-5,
 )
-print(f"g_LBM = {results['g_SI']:.4e} m^3/s")
+print(f"g_LBM = {results['g_SI']:.4e} m³/s")
 
-# Analytical check: straight cylinder  g_d = D0 * pi * R^2 / L
-D0_m2s = 2.1e-5
-dx_m = 1e-6
-g_d_analytical_lu = (1/4) * np.pi * R_lu**2 / L_lu
-g_d_analytical_SI = g_d_analytical_lu * D0_m2s * dx_m / (1/4)
-print(f"\nAnalytical (cylinder): g_d = {g_d_analytical_SI:.4e} m^3/s")
-print(f"Ratio LBM / analytical = {results['g_SI'] / g_d_analytical_SI:.4f}")
-# %%
+# Analytical: G = D0 * A / L  (straight cylinder, no tortuosity)
+D0_m2s  = 2.09e-5
+dx_m    = 1e-6
+L_m     = L_lu * dx_m
+A_cyl   = np.pi * (R_lu * dx_m)**2
+G_analytical_SI = D0_m2s * A_cyl / L_m          # m³/s
+print(f"\nAnalytical (cylinder): G = {G_analytical_SI:.4e} m³/s")
+print(f"Ratio LBM / analytical = {results['g_SI'] / G_analytical_SI:.4f}")
+

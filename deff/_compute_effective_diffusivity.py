@@ -30,7 +30,7 @@ import numpy as np
 from tools.vtr_io import parse_xml_arrays, read_array
 
 
-__all__ = ["compute_effective_diffusivity"]
+__all__ = ["compute_effective_diffusivity", "compute_diffusive_conductance"]
 
 
 _C_IN  = 1.00
@@ -163,4 +163,116 @@ def compute_effective_diffusivity(
         "formation_factor": formation_factor,
         "tortuosity":       tortuosity,
         "D_eff_m2s":        D_eff_m2s,
+    }
+
+
+def compute_diffusive_conductance(
+    soln,
+    direction=None,
+    D_lu=None,
+    D0_m2s=None,
+    voxel_size=None,
+    verbose=True,
+):
+    """Compute diffusive conductance g from a D3Q7 BGK LBM simulation.
+
+    The conductance is defined by  n_a = g * ΔC, where n_a is the molar flux
+    normalized by the **open (pore) cross-sectional area** of the domain, not
+    the total domain area.
+
+    Parameters
+    ----------
+    soln : DiffusionResult or str/path-like
+        Either a ``DiffusionResult`` returned by ``solve_diffusion()``, or a
+        path to a ``.vtr`` file written by ``DiffusionSolver.export_VTK()``.
+    direction : {'x', 'y', 'z'} or None
+        Flow direction.  Defaults to ``soln.direction`` when a
+        ``DiffusionResult`` is supplied.
+    D_lu : float or None
+        Bulk diffusivity in lattice units.  Defaults to ``soln.D`` when a
+        ``DiffusionResult`` is supplied, otherwise 1/4.
+    D0_m2s : float or None
+        Physical bulk diffusivity in m²/s (e.g. ``2.1e-5`` for O₂ in air at
+        25 °C).  Required to compute ``g_SI``.
+    voxel_size : float or None
+        Physical side length of one voxel in metres.  Required to compute
+        ``g_SI``.
+    verbose : bool
+        Print a summary to stdout.  Default True.
+
+    Returns
+    -------
+    dict with keys:
+        porosity      – pore volume fraction (dimensionless)
+        open_area     – mean pore cross-sectional area [voxels²]
+        n_a           – molar flux normalized by open area [lu]
+        g             – diffusive conductance  n_a / ΔC  [lu]
+        g_SI          – total volumetric conductance  g × A_open_SI  [m³/s]
+                        (None if D0_m2s or voxel_size is not supplied).
+                        Equivalent to D0 × A_open / L for a straight pore.
+
+    Notes
+    -----
+    The open area is computed as the mean pore voxel count per cross-section
+    perpendicular to the flow direction (= porosity × total cross-section area).
+    The total flow rate is averaged over all cross-sections at steady state
+    (conservation of mass guarantees these are equal).  Combining::
+
+        Q_avg   = sum(flux_dir) / L
+        A_open  = sum(pore_mask) / L  = porosity × A_total
+        n_a     = Q_avg / A_open  = mean(flux_dir) / porosity
+        g       = n_a / ΔC
+
+    The SI conversions use D_physical = D_lu × voxel_size²/Δt::
+
+        g_SI  = g_lu × D0_m2s × A_open × voxel_size / D_lu  [m³/s]
+    """
+    _dir  = direction if direction is not None else soln.direction
+    _D_lu = D_lu      if D_lu      is not None else soln.D
+
+    solid    = soln.solid
+    flux_vec = soln.flux
+
+    _dir = _dir.lower()
+    if _dir not in ("x", "y", "z"):
+        raise ValueError(f"direction must be 'x', 'y', or 'z', got {_dir!r}")
+
+    pore_mask = solid == 0
+    porosity  = float(pore_mask.sum()) / pore_mask.size
+    nx, ny, nz = solid.shape
+
+    A_total = {"x": ny * nz, "y": nx * nz, "z": nx * ny}[_dir]
+    dir_idx = {"x": 0,  "y": 1,  "z": 2}[_dir]
+
+    flux    = flux_vec[..., dir_idx]
+    delta_c = _C_IN - _C_OUT  # = 1.0
+
+    J_mean    = float(np.mean(flux))
+    open_area = porosity * A_total       # mean pore cross-section area [voxels²]
+    n_a       = J_mean / porosity        # flux normalized by open area
+    g         = n_a / delta_c
+
+    g_SI = None
+    if D0_m2s is not None and voxel_size is not None:
+        g_SI = g * D0_m2s * open_area * voxel_size / _D_lu
+
+    if verbose:
+        print(f"\nFlow direction         = {_dir}")
+        print(f"Porosity (φ)           = {porosity:.4f}")
+        print(f"Total cross-section    = {A_total}  [voxels²]")
+        print(f"Open area (φ × A)      = {open_area:.2f}  [voxels²]")
+        print(f"Mean flux  J           = {J_mean:.6e}  [lu]")
+        print(f"n_a  (flux / A_open)   = {n_a:.6e}  [lu]")
+        print(f"g  = n_a / ΔC          = {g:.6e}  [lu]")
+        if g_SI is not None:
+            print(f"g  (SI)                = {g_SI:.6e}  [m³/s]")
+        else:
+            print("\nTo get g in SI units: pass D0_m2s (m²/s) and voxel_size (m).")
+
+    return {
+        "porosity":   porosity,
+        "open_area":  open_area,
+        "n_a":        n_a,
+        "g":          g,
+        "g_SI":       g_SI,
     }
