@@ -52,8 +52,6 @@ plt.show()
 results = compute_diffusive_conductance(
     soln,
     direction="x",
-    D_lu=1/4,
-    D0_m2s=2.1e-5,   # e.g. O2 in air at 25°C
     dx_m=1e-6,
 )
 print(f"g_LBM = {results['g_SI']:.4e} m^3/s")

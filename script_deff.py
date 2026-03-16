@@ -35,6 +35,3 @@ c_slice = plot_cross_section(soln, axis=1)
 ax.imshow(c_slice, origin="lower", cmap="turbo", vmin=0, vmax=1)
 add_streamlines(soln, ax, axis=1, color="white", density=1.0)
 plt.show()
-
-
-# %%

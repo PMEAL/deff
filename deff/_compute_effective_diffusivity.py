@@ -64,7 +64,7 @@ def _read_diffusion_vtr(vtr_file, verbose):
 
 
 def compute_effective_diffusivity(
-    source,
+    soln,
     direction=None,
     D_lu=None,
     D0_m2s=None,
@@ -74,7 +74,7 @@ def compute_effective_diffusivity(
 
     Parameters
     ----------
-    source : DiffusionResult or str/path-like
+    soln: DiffusionResult or str/path-like
         Either a ``DiffusionResult`` returned by ``solve_diffusion()``, or a
         path to a ``.vtr`` file written by ``DiffusionSolver.export_VTK()``.
         When a ``DiffusionResult`` is given, ``direction`` and ``D_lu`` default
@@ -102,18 +102,12 @@ def compute_effective_diffusivity(
         tortuosity       – τ = F / φ = D_0 / (D_eff × φ)  (always > 1)
         D_eff_m2s        – effective diffusivity in m²/s  (None if D0_m2s is None)
     """
-    from ._solve_diffusion import DiffusionResult
 
-    if isinstance(source, DiffusionResult):
-        _dir  = direction if direction is not None else source.direction
-        _D_lu = D_lu      if D_lu      is not None else source.D
-        solid    = source.solid
-        c        = source.c
-        flux_vec = source.flux
-    else:
-        _dir  = direction if direction is not None else "x"
-        _D_lu = D_lu      if D_lu      is not None else 1.0 / 4.0
-        solid, c, flux_vec = _read_diffusion_vtr(source, verbose)
+    _dir  = direction if direction is not None else soln.direction
+    _D_lu = D_lu      if D_lu      is not None else soln.D
+    solid    = soln.solid
+    c        = soln.c
+    flux_vec = soln.flux
 
     _dir = _dir.lower()
     if _dir not in ("x", "y", "z"):
