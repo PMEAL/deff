@@ -247,7 +247,13 @@ def compute_diffusive_conductance(
     flux    = flux_vec[..., dir_idx]
     delta_c = _C_IN - _C_OUT  # = 1.0
 
-    J_mean    = float(np.mean(flux))
+    # Average flux over interior slices only (exclude inlet/outlet faces).
+    # The equilibrium BC forces flux=0 at the two boundary faces; including them
+    # dilutes J_mean by a factor of (L-2)/L and biases the conductance low.
+    flux_interior = {"x": flux[1:-1, :, :],
+                     "y": flux[:, 1:-1, :],
+                     "z": flux[:, :, 1:-1]}[_dir]
+    J_mean    = float(np.mean(flux_interior))
     open_area = porosity * A_total       # mean pore cross-section area [voxels²]
     n_a       = J_mean / porosity        # flux normalized by open area
     g         = n_a / delta_c

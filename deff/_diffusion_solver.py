@@ -282,6 +282,8 @@ class DiffusionSolver:
             axis=-1,
         )  # shape (nx, ny, nz, 3)
         flux_vec[solid_np > 0] = 0.0  # zero out solid voxels
+        # Correct for τ/(τ−0.5) overestimation (see DiffusionResult for derivation)
+        flux_vec *= (self.tau_D - 0.5) / self.tau_D
 
         gridToVTK(
             path,

@@ -54,6 +54,9 @@ class DiffusionResult:
             axis=-1,
         )  # shape (nx, ny, nz, 3)
         flux_vec[solid_np > 0] = 0.0
+        # Correct for the τ/(τ−0.5) overestimation: the first moment Σ g_s e_s
+        # equals τ·c_s²·|∇c| but the true diffusive flux is D_lu·|∇c| = (τ−0.5)·c_s²·|∇c|.
+        flux_vec *= (solver.tau_D - 0.5) / solver.tau_D
         self.flux = flux_vec
 
     def export_to_vtk(self, prefix):

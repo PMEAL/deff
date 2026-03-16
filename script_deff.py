@@ -20,7 +20,7 @@ im = ps.generators.cylinders(
 soln = solve_diffusion(
     im=im,
     direction="x",
-    tol=1e-2,
+    tol=1e-4,
 )
 res = compute_effective_diffusivity(
     soln,

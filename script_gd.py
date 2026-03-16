@@ -16,7 +16,7 @@ from porespy.tools import (
 edt = get_edt()
 
 ti.init(arch=ti.cpu)
-Rp = 10
+Rp = 20
 R_lu = 10
 L_lu = 50
 W = 50
@@ -26,13 +26,13 @@ cy, cz = int(W/2), int(H/2)
 for i in range(L_lu):
     for j in range(W):
         for k in range(H):
-            if (j - cy)**2 + (k - cz)**2 < R_lu**2:
+            if (j - cy)**2 + (k - cz)**2 <= R_lu**2:
                 box[i, j, k] = 1
 # Add spheres to the ends
 balls = np.ones_like(box, dtype=bool)
 balls[0, cy, cz] = False
 balls[-1, cy, cz] = False
-balls = edt(balls) < Rp
+balls = edt(balls) <= Rp
 # box[balls] = True
 
 soln = solve_diffusion(
