@@ -1,20 +1,21 @@
 """
-Compute effective diffusivity from D3Q7 BGK LBM diffusion simulation output.
+Compute effective diffusivity and diffusive conductance from D3Q7 BGK LBM
+diffusion simulation output.
 
-Accepts either a ``DiffusionResult`` object (returned by ``solve_diffusion``) or
-a path to a .vtr file written by pyevtk.  When passed a ``DiffusionResult`` the
-VTR round-trip is skipped entirely.
+Accepts a ``DiffusionResult`` object returned by ``solve_diffusion``.
 
 Fick's Law:  D_eff = J * L / Δc
 
-  J      = mean diffusive flux in the flow direction over the entire domain
-             (solid voxels have flux=0, so this naturally accounts for porosity)
+  J      = mean diffusive flux in the flow direction over the interior of the
+             domain (inlet/outlet boundary faces excluded; solid voxels are
+             zero, so the mean over all voxels naturally accounts for porosity)
   L      = domain length in the flow direction (lattice units)
   Δc     = c_in - c_out = 1.00 - 0.00 = 1.0  (hardcoded in solve_diffusion)
 
-The flux stored in the VTR is the raw LBM flux:
-  flux[i,j,k] = Σ_s  g_s[i,j,k] * e_s[d]
-which has units of D_0 * (concentration / length).  Therefore:
+The flux stored in ``DiffusionResult.flux`` is the corrected LBM first moment:
+  flux[i,j,k,d] = (τ−0.5)/τ · Σ_s  g_s[i,j,k] * e_s[d]
+The (τ−0.5)/τ factor corrects the raw Chapman-Enskog overestimation
+(raw first moment = τ·c_s²·|∇c|; true diffusive flux = (τ−0.5)·c_s²·|∇c|).
 
   D_eff_lu  = mean(flux) * L / Δc          [lattice units]
   D_eff/D_0 = D_eff_lu / D_lu              [dimensionless; primary output]
@@ -74,22 +75,18 @@ def compute_effective_diffusivity(
 
     Parameters
     ----------
-    soln: DiffusionResult or str/path-like
-        Either a ``DiffusionResult`` returned by ``solve_diffusion()``, or a
-        path to a ``.vtr`` file written by ``DiffusionSolver.export_VTK()``.
-        When a ``DiffusionResult`` is given, ``direction`` and ``D_lu`` default
-        to the values stored in the result.
+    soln : DiffusionResult
+        Result object returned by ``solve_diffusion()``.  The flow direction
+        and lattice diffusivity are read from ``soln.direction`` and ``soln.D``
+        unless overridden by the arguments below.
     direction : {'x', 'y', 'z'} or None
-        Flow direction.  If *None* and ``source`` is a ``DiffusionResult``,
-        taken from ``source.direction``; otherwise defaults to ``'x'``.
+        Flow direction.  Defaults to ``soln.direction``.
     D_lu : float or None
         Bulk diffusivity in lattice units used during the simulation.
-        If *None* and ``source`` is a ``DiffusionResult``, taken from
-        ``source.D``; otherwise defaults to 1/4.
+        Defaults to ``soln.D`` (typically 1/4).
     D0_m2s : float or None
-        Physical bulk diffusivity in m²/s.  If given, the effective
-        diffusivity is also reported in m²/s.  E.g. for O₂ in air at
-        25 °C: ``D0_m2s=2.1e-5``.
+        Physical bulk diffusivity in m²/s.  If given, ``D_eff_m2s`` is
+        also returned.  E.g. for O₂ in air at 25 °C: ``D0_m2s=2.09e-5``.
     verbose : bool
         Print a summary of results to stdout.  Default True.
 
@@ -100,7 +97,7 @@ def compute_effective_diffusivity(
         D_eff_norm       – effective diffusivity ratio D_eff / D_0
         formation_factor – F = D_0 / D_eff  (= 1 / D_eff_norm)
         tortuosity       – τ = F / φ = D_0 / (D_eff × φ)  (always > 1)
-        D_eff_m2s        – effective diffusivity in m²/s  (None if D0_m2s is None)
+        D_eff_m2s        – effective diffusivity in m²/s  (None if D0_m2s not given)
     """
 
     _dir  = direction if direction is not None else soln.direction
@@ -176,23 +173,23 @@ def compute_diffusive_conductance(
 ):
     """Compute diffusive conductance g from a D3Q7 BGK LBM simulation.
 
-    The conductance is defined by  n_a = g * ΔC, where n_a is the molar flux
-    normalized by the **open (pore) cross-sectional area** of the domain, not
-    the total domain area.
+    The conductance is defined by  n_a = g · ΔC, where n_a is the diffusive
+    flux normalised by the **open (pore) cross-sectional area** of the domain,
+    not the total domain area.
 
     Parameters
     ----------
-    soln : DiffusionResult or str/path-like
-        Either a ``DiffusionResult`` returned by ``solve_diffusion()``, or a
-        path to a ``.vtr`` file written by ``DiffusionSolver.export_VTK()``.
+    soln : DiffusionResult
+        Result object returned by ``solve_diffusion()``.  The flow direction
+        and lattice diffusivity are read from ``soln.direction`` and ``soln.D``
+        unless overridden by the arguments below.
     direction : {'x', 'y', 'z'} or None
-        Flow direction.  Defaults to ``soln.direction`` when a
-        ``DiffusionResult`` is supplied.
+        Flow direction.  Defaults to ``soln.direction``.
     D_lu : float or None
-        Bulk diffusivity in lattice units.  Defaults to ``soln.D`` when a
-        ``DiffusionResult`` is supplied, otherwise 1/4.
+        Bulk diffusivity in lattice units.  Defaults to ``soln.D``
+        (typically 1/4).
     D0_m2s : float or None
-        Physical bulk diffusivity in m²/s (e.g. ``2.1e-5`` for O₂ in air at
+        Physical bulk diffusivity in m²/s (e.g. ``2.09e-5`` for O₂ in air at
         25 °C).  Required to compute ``g_SI``.
     voxel_size : float or None
         Physical side length of one voxel in metres.  Required to compute
@@ -203,29 +200,33 @@ def compute_diffusive_conductance(
     Returns
     -------
     dict with keys:
-        porosity      – pore volume fraction (dimensionless)
-        open_area     – mean pore cross-sectional area [voxels²]
-        n_a           – molar flux normalized by open area [lu]
-        g             – diffusive conductance  n_a / ΔC  [lu]
-        g_SI          – total volumetric conductance  g × A_open_SI  [m³/s]
-                        (None if D0_m2s or voxel_size is not supplied).
-                        Equivalent to D0 × A_open / L for a straight pore.
+        porosity  – pore volume fraction (dimensionless)
+        open_area – mean pore cross-sectional area [voxels²]
+        n_a       – diffusive flux normalised by open area [lu]
+        g         – diffusive conductance  n_a / ΔC  [lu]
+        g_SI      – volumetric conductance [m³/s]
+                    (None if D0_m2s or voxel_size is not supplied).
+                    Equals D0 · A_open · dx / L for a straight pore.
 
     Notes
     -----
-    The open area is computed as the mean pore voxel count per cross-section
-    perpendicular to the flow direction (= porosity × total cross-section area).
-    The total flow rate is averaged over all cross-sections at steady state
-    (conservation of mass guarantees these are equal).  Combining::
+    The flux is averaged over **interior slices only** (the two
+    inlet/outlet boundary faces are excluded).  The equilibrium Dirichlet BC
+    forces the flux to zero at those faces; including them would dilute J_mean
+    by (L−2)/L and bias g low.
 
-        Q_avg   = sum(flux_dir) / L
-        A_open  = sum(pore_mask) / L  = porosity × A_total
-        n_a     = Q_avg / A_open  = mean(flux_dir) / porosity
+    The open area is computed as porosity × total cross-section area.
+    Combining at steady state (conservation of mass guarantees uniform
+    cross-sectional flux)::
+
+        J_mean  = mean(flux_dir) over interior slices
+        A_open  = porosity × A_total
+        n_a     = J_mean / porosity
         g       = n_a / ΔC
 
-    The SI conversions use D_physical = D_lu × voxel_size²/Δt::
+    SI conversion (D_physical = D_lu × voxel_size² / Δt)::
 
-        g_SI  = g_lu × D0_m2s × A_open × voxel_size / D_lu  [m³/s]
+        g_SI = g_lu × D0_m2s × A_open × voxel_size / D_lu  [m³/s]
     """
     _dir  = direction if direction is not None else soln.direction
     _D_lu = D_lu      if D_lu      is not None else soln.D

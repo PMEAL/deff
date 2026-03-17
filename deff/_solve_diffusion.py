@@ -31,12 +31,14 @@ class DiffusionResult:
     c : np.ndarray, shape (nx, ny, nz), dtype float32
         Concentration field.
     flux : np.ndarray, shape (nx, ny, nz, 3), dtype float32
-        Diffusive flux vector (Jx, Jy, Jz) at each voxel.
-        Solid voxels are zeroed out.
+        Corrected diffusive flux vector (Jx, Jy, Jz) at each voxel.
+        The raw LBM first moment Σ g_s e_s overestimates the true flux by
+        τ/(τ−0.5); this array has already been multiplied by (τ−0.5)/τ.
+        Solid voxels are set to zero.
     direction : str
         Flow direction used in the simulation ('x', 'y', or 'z').
     D : float
-        Bulk diffusivity in lattice units.
+        Bulk diffusivity in lattice units (default 1/4).
     """
 
     def __init__(self, solver, direction, D):
@@ -105,8 +107,8 @@ def solve_diffusion(
     log_every : int
         Print a progress line every this many steps.  Default 500.
     export_vtk : bool
-        If True (default), write ``{output_prefix}-{final_step}-{direction}.vtr``
-        at the end.  The file contains Solid, c, and flux arrays.
+        If True, write ``{output_prefix}-{final_step}-{direction}.vtr`` at the
+        end.  The file contains Solid, c, and flux arrays.  Default False.
     output_prefix : str
         Filename prefix for the VTR output.  Default ``'LB_Diffusion'``.
     verbose : bool

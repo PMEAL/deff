@@ -12,24 +12,29 @@ __all__ = [
 class DiffusionSolver:
     """D3Q7 BGK Lattice-Boltzmann solver for passive scalar diffusion.
 
-    Uses a scalar distribution function (7 components) and a single-relaxation-
-    time (BGK) collision operator.  This is the diffusion analogue of the
-    D3Q19 MRT flow solver in ``SinglePhaseSolver``.
+    Uses a 7-component scalar distribution function and a single-relaxation-
+    time (BGK) collision operator.
+
+    D3Q7 lattice vectors and weights:
+      index 0 : rest  (0, 0, 0),  w = 1/4
+      index 1–6 : ±x, ±y, ±z,   w = 1/8 each
+    Speed of sound squared: c_s² = 1/4.
+    Relaxation time: τ_D = 4·D + 0.5.
 
     Parameters
     ----------
     im : np.ndarray, shape (nx, ny, nz), dtype int8
         Binary solid map in the **internal** convention: 1 = solid, 0 = pore.
-        (``solve_diffusion`` flips the public 1=pore / 0=solid convention
-        before passing the image here.)
+        ``solve_diffusion`` flips the public 1=pore / 0=solid convention
+        before passing the image here.
     sparse_storage : bool
-        If True use Taichi pointer-backed sparse fields; only pore voxels are
-        allocated.  Default False (dense storage).
+        If True, use Taichi pointer-backed sparse fields; only pore voxels are
+        allocated, reducing memory for high-solid-fraction images.
+        Default False (dense storage).
     D : float
-        Bulk diffusivity in lattice units.  Default 1/4.
-        τ_D = 4D + 0.5 (c_s² = 1/4 for D3Q7), so D=1/4 → τ_D=1.5.
-        Steps to convergence scale as L²/D so larger D is faster, but
-        accuracy degrades above τ_D ≈ 2.  D=1/4 is the sweet spot.
+        Bulk diffusivity in lattice units.  Default 1/4 (→ τ_D = 1.5).
+        Steps to convergence scale as L²/D, so larger D converges faster,
+        but accuracy degrades above τ_D ≈ 2 (D ≈ 3/8).
     """
 
     def __init__(self, im, sparse_storage=False, D=1.0 / 4.0):
@@ -263,13 +268,20 @@ class DiffusionSolver:
     def export_VTK(self, path, direction):
         """Write a VTK Rectilinear Grid (.vtr) file.
 
+        Arrays written:
+          - ``Solid`` (int8)   — solid mask (1 = solid, 0 = pore)
+          - ``c``     (float32) — concentration field
+          - ``flux``  (float32, 3-component) — corrected diffusive flux vector
+
+        The flux is the Chapman-Enskog corrected first moment:
+        ``(τ−0.5)/τ · Σ_s g_s e_s``, consistent with ``DiffusionResult.flux``.
+
         Parameters
         ----------
         path : str
             Output path without extension (pyevtk appends ``.vtr``).
         direction : {'x', 'y', 'z'}
-            Flow direction used for the simulation.  Stored in the file for
-            reference; all three flux components are always written.
+            Flow direction used for the simulation.
         """
         g_np     = self.g.to_numpy()        # (nx, ny, nz, 7)
         e_np     = self.e.to_numpy()        # (7, 3)

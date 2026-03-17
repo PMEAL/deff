@@ -13,20 +13,21 @@ __all__ = [
 
 def plot_cross_section(soln, axis=2):
     r"""
-    Generate a 2D image of the concentration field for plotting.
+    Extract a 2D mid-plane slice of the concentration field.
 
     Parameters
     ----------
-    filename : str
-        The VTR file produced by ``solve_diffusion`` / ``DiffusionSolver.export_VTK()``.
+    soln : DiffusionResult
+        Result object returned by ``solve_diffusion()``.
     axis : int
-        The axis along which the mid-plane slice is taken.
-        ``0`` → y-z plane, ``1`` → x-z plane, ``2`` (default) → x-y plane.
+        The axis normal to the slice plane.
+        ``0`` → y-z plane at mid-x, ``1`` → x-z plane at mid-y,
+        ``2`` (default) → x-y plane at mid-z.
 
     Returns
     -------
-    c_slice : ndarray
-        A 2D array of concentration values at the mid-plane slice.
+    c_slice : ndarray, shape (n, m)
+        2D array of concentration values at the mid-plane slice.
     """
     c = soln.c
     nx, ny, nz = c.shape[:3]
@@ -43,19 +44,17 @@ def add_streamlines(source, ax, axis, **kwargs):
     r"""
     Add diffusive flux streamlines to a concentration plot.
 
-    Reads the 3-component ``flux`` vector field from a diffusion VTR file and
-    calls ``plt.streamplot`` using the two in-plane components at the mid-plane
-    slice, matching the slice taken by :func:`plot_concentration`.
+    Draws ``plt.streamplot`` using the two in-plane flux components at the
+    mid-plane slice, matching the slice taken by :func:`plot_cross_section`.
 
     Parameters
     ----------
-    source : DiffusionResult or str
-        Either a ``DiffusionResult`` returned by ``solve_diffusion()``, or a
-        path to a ``.vtr`` file written by ``DiffusionSolver.export_VTK()``.
+    source : DiffusionResult
+        Result object returned by ``solve_diffusion()``.
     ax : matplotlib.axes.Axes
         The axes object to draw streamlines on.
     axis : int
-        Slice axis, must match the ``axis`` passed to :func:`plot_concentration`.
+        Slice axis, must match the ``axis`` passed to :func:`plot_cross_section`.
         ``0`` → y-z plane, ``1`` → x-z plane, ``2`` → x-y plane.
     **kwargs
         Forwarded to ``plt.streamplot`` (e.g. ``color='white'``, ``density=1.5``).
