@@ -96,7 +96,7 @@ def compute_effective_diffusivity(
         porosity         – pore volume fraction (dimensionless)
         D_eff_norm       – effective diffusivity ratio D_eff / D_0
         formation_factor – F = D_0 / D_eff  (= 1 / D_eff_norm)
-        tortuosity       – τ = F / φ = D_0 / (D_eff × φ)  (always > 1)
+        tortuosity       – τ = F · φ = φ / D_eff_norm  (always ≥ 1)
         D_eff_m2s        – effective diffusivity in m²/s  (None if D0_m2s not given)
     """
 
@@ -124,7 +124,7 @@ def compute_effective_diffusivity(
     D_eff_norm = D_eff_lu / _D_lu
 
     formation_factor = 1.0 / D_eff_norm if D_eff_norm > 0 else float("inf")
-    tortuosity       = formation_factor / porosity
+    tortuosity       = formation_factor * porosity
 
     D_eff_m2s = None
     if D0_m2s is not None:
