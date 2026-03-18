@@ -1,8 +1,7 @@
-from tools.vtr_io import parse_xml_arrays, read_array
+from deff.utils import parse_xml_arrays, read_array, vtr_to_array
 import re
 import numpy as np
 import matplotlib.pyplot as plt
-from tools.vtr_io import vtr_to_array
 
 
 __all__ = [

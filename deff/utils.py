@@ -7,6 +7,7 @@ import struct
 
 import numpy as np
 
+
 __all__ = [
     "vtr_to_array",
     "parse_xml_arrays",

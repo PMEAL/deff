@@ -28,7 +28,7 @@ import re
 
 import numpy as np
 
-from tools.vtr_io import parse_xml_arrays, read_array
+from deff.utils import parse_xml_arrays, read_array
 
 
 __all__ = ["compute_effective_diffusivity", "compute_diffusive_conductance"]
