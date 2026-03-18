@@ -33,12 +33,17 @@ balls = np.ones_like(box, dtype=bool)
 balls[0, cy, cz] = False
 balls[-1, cy, cz] = False
 balls = edt(balls) <= Rp
-# box[balls] = True
+box[balls] = True
 
 soln = solve_diffusion(
     im=box,
     direction="x",
     tol=1e-4,
+)
+
+fd = ps.simulations.tortuosity_fd(
+    im=box,
+    axis=0,
 )
 
 # %%
@@ -66,3 +71,5 @@ G_analytical_SI = D0_m2s * A_cyl / L_m          # m³/s
 print(f"\nAnalytical (cylinder): G = {G_analytical_SI:.4e} m³/s")
 print(f"Ratio LBM / analytical = {results['g_SI'] / G_analytical_SI:.4f}")
 
+
+# %%
