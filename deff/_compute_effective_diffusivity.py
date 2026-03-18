@@ -38,32 +38,6 @@ _C_IN  = 1.00
 _C_OUT = 0.00
 
 
-def _read_diffusion_vtr(vtr_file, verbose):
-    """Read solid, c, and flux arrays from a diffusion .vtr file."""
-    if verbose:
-        print(f"Reading {vtr_file} ...")
-    with open(vtr_file, "rb") as fh:
-        raw = fh.read()
-
-    marker       = raw.index(b'<AppendedData encoding="raw">')
-    binary_start = raw.index(b"_", marker) + 1
-    xml_header   = raw[:marker].decode("utf-8", errors="replace")
-    arrays       = parse_xml_arrays(xml_header)
-
-    m = re.search(r'WholeExtent="(\d+) (\d+) (\d+) (\d+) (\d+) (\d+)"', xml_header)
-    x0, x1, y0, y1, z0, z1 = (int(v) for v in m.groups())
-    nx, ny, nz = x1 - x0 + 1, y1 - y0 + 1, z1 - z0 + 1
-    if verbose:
-        print(f"  Grid: {nx} × {ny} × {nz} points")
-
-    solid    = read_array(raw, binary_start, arrays, "Solid", nx, ny, nz)
-    c        = read_array(raw, binary_start, arrays, "c",     nx, ny, nz)
-    flux_vec = read_array(raw, binary_start, arrays, "flux",  nx, ny, nz)
-    if verbose:
-        print("  Arrays loaded.")
-    return solid, c, flux_vec
-
-
 def compute_effective_diffusivity(
     soln,
     direction=None,
