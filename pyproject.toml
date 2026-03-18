@@ -11,5 +11,6 @@ dependencies = [
     "numpy>=2.4.2",
     "porespy>=3.0.4",
     "pyevtk>=1.6.0",
+    "ruff>=0.15.6",
     "taichi>=1.7.4",
 ]
